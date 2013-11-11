@@ -194,7 +194,14 @@ def main(world_folder):
 
 if __name__ == '__main__':
 	if (len(sys.argv) == 1):
-		print("No world folder specified!")
+		print("Usage: OreCounter.py [options] WorldFolder")
+		print("       -i Input File (not implemented)")
+		print("       -o Output File (not implemented)")
+		print("       -v Print output to console (not implemented)")
+		print("       -d Calculate height distribution (not implemented)")
+		print("       -b Calculate per biome count (not implemented)")
+		print("       -p Calculate per biome distribution (not implemented)")
+		print("       -c Calculate average cluster size (not implemented)")
 		sys.exit(64) # EX_USAGE
 	world_folder = sys.argv[1]
 	# clean path name, eliminate trailing slashes:
