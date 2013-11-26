@@ -104,15 +104,14 @@ if __name__ == '__main__':
 				for block in microchunk["Blocks"]:
 					tempblock = block
 					if microchunk.__contains__("Add"):
-						if block != 0: # TODO
-							add = microchunk["Add"][int(i/2)]
-							if i%2 == 0:
-								add = (add & 0x0F) << 8
-							else:
-								add = (add & 0xF0) << 4
-							tempblock = tempblock | add
+						add = microchunk["Add"][int(i/2)]
+						if i%2 == 0:
+							add = (add & 0x0F) << 8
+						else:
+							add = (add & 0xF0) << 4
+						tempblock = tempblock | add
 					subid = 0
-					if block != 0:
+					if tempblock != 0:
 						subid = microchunk["Data"][int(i/2)]
 						if i%2 == 0:
 							subid = (subid & 0x0F)
