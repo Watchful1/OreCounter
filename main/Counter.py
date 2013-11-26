@@ -3,7 +3,7 @@
 Finds and prints different entities in a game file, including mobs, items, and vehicles.
 """
 
-import locale, os, sys, time
+import locale, os, sys, time, argparse
 # local module
 try:
 	import nbt
@@ -15,65 +15,39 @@ except ImportError:
 	sys.path.append(extrasearchpath)
 from nbt.world import WorldFolder
 
-class Position(object):
-	def __init__(self, x,y,z):
-		self.x = x
-		self.y = y
-		self.z = z
-
-class Entity(object):
-	def __init__(self, type, pos):
-		self.type  = type
-		self.pos   = Position(*pos)
-
-
-def entities_per_chunk(chunk):
-	"""Given a chunk, find all entities (mobs, items, vehicles)"""
-	entities = []
-	for entity in chunk['Entities']:
-		x,y,z = entity["Pos"]
-		entities.append(Entity(entity["id"].value, (x.value,y.value,z.value)))
-	return entities
-
-def bsearch(array, element, first, last, calls):
-	print first, last, calls
-	print(first,last)
-	if (last - first) < 2:
-		print("First check")
-		if array[first][0] == element:
-			return first
-		elif array[last][0] == element:
-			return last
-		else:
-			return False
-	mid = first + (last - first)/2
-	print(first,last,mid)
-	if array[mid][0] == element:
-		print("Mid is element")
-		return True
-	if array[mid][0] > element:
-		print("Bigger than element, going down")
-		return bsearch(array, element, first, mid - 1, calls+1)
-	print("Smaller than element, going up")
-	return bsearch(array, element, mid + 1, last, calls + 1)
-
-def search(array, element):
-	return bsearch(array, element, 0, len(array) - 1, 1)
+world_folder = "blank"
 
 def inBlockArray(array, ele):
-	#print("\nLooking for "+str(ele)+" in "+str(array))
 	i = 0
 	for sub in array:
 		if sub[0] == ele:
-			#if i == 0:
-				#print("It was zero!")
-			#print("Found it")
 			return i
 		i += 1
-	#print("Didn't find it")
 	return -1
 
-def main(world_folder):
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description='Scan a minecraft Anvil world and count ores')
+	parser.add_argument('world', metavar='W', nargs=1, help='the world folder to scan')
+	parser.add_argument('-i', metavar='input', required=True, nargs=1, help='Input file, contains blocks to search for in the following format, one per line, blockID[:datavalue]  If no datavalue is given all blocks with the given ID are counted')
+	parser.add_argument('-o', metavar='output', nargs=1, help='Output file. If not given, the program prints to console')
+	parser.add_argument('-d', action='store_true', help='Calculate and output height distributions of ores')
+	parser.add_argument('-b', action='store_true', help='Calculate per biome count of ores')
+	parser.add_argument('-B', action='store_true', help='Calculate per biome height distribution, includes -b')
+	parser.add_argument('-c', action='store_true', help='Calculate average cluster size (not implemented)')
+	parser.add_argument('-n', action='store_true', help='Build a list of nearby blocks for each ore type (not implemented)')
+	parser.add_argument('-s', action='store_true', help='Search a world to try to discover all ore types and output to given output file. Ignores other options. (not implemented)')
+	args = parser.parse_args()
+	if args.B:
+		args.b = True
+	print(args)
+	
+	world_folder = str(args.world).strip('"\'[]')
+	# clean path name, eliminate trailing slashes:
+	world_folder = os.path.normpath(world_folder)
+	if (not os.path.exists(world_folder)):
+		print("No such folder as "+world_folder)
+		sys.exit(72) # EX_IOERR
+	
 	find = [0] * 4096
 	found = [0] * 4096
 	
@@ -86,7 +60,7 @@ def main(world_folder):
 			ele.append("-1")
 		if len(ele) != 2:
 			print("Aborting, wrong number of arguments in line "+str(i)+" : "+line)
-			return
+			sys.exit()
 		try:
 			if find[int(ele[0])] == 0:
 				find[int(ele[0])] = [[int(ele[1]), [0] * 256]]
@@ -97,10 +71,10 @@ def main(world_folder):
 				find[int(ele[0])].sort()
 		except IndexError:
 			print("Aborting, ID too large in line "+str(i)+" : "+line)
-			return
+			sys.exit()
 		except ValueError:
 			print("Aborting, bad value in line "+str(i)+" : "+line)
-			return
+			sys.exit()
 		line = inputfile.readline().strip("\n\r")
 		i += 1
 	inputfile.close()
@@ -125,61 +99,44 @@ def main(world_folder):
 			chunknum += 1
 			sys.stdout.write('%d / %d chunks searched\r' % (chunknum, numchunks))
 			sys.stdout.flush()
-			#if chunknum > 938:
-			#	return
-			if chunknum > 0:
-				for microchunk in chunk["Level"]["Sections"]:
-					i = 0
-					for block in microchunk["Blocks"]:
-						tempblock = block
-						if microchunk.__contains__("Add"):
-							if block != 0:
-								add = microchunk["Add"][int(i/2)]
-								if i%2 == 0:
-									add = (add & 0x0F) << 8
-								else:
-									add = (add & 0xF0) << 4
-								#if add != 0:
-								#	counter += 1
-								tempblock = tempblock | add
-								#if tempblock > 256:
-								#	print(tempblock)
-						subid = 0
-						if block != 0:
-							subid = microchunk["Data"][int(i/2)]
+			for microchunk in chunk["Level"]["Sections"]:
+				i = 0
+				for block in microchunk["Blocks"]:
+					tempblock = block
+					if microchunk.__contains__("Add"):
+						if block != 0: # TODO
+							add = microchunk["Add"][int(i/2)]
 							if i%2 == 0:
-								subid = (subid & 0x0F)
+								add = (add & 0x0F) << 8
 							else:
-								subid = (subid & 0xF0) >> 4
-						
-						#if tempblock == 2502 and subid == 13:
-						#	print("\nX: "+str(i%16+int(chunk["Level"]["xPos"].__str__())*16)+" Y: "+str(int(i/256)+int(microchunk["Y"].__str__())*16)+" Z: "+str(int(i/16)%16+int(chunk["Level"]["zPos"].__str__())*16)+"\n")
-							#print("\n\nAdd: "+str(hex(block))+" i: "+str(i)+"\n\n")
-						
-						#x = i%16+int(chunk["Level"]["xPos"].__str__())*16
-						#y = int(i/256)+int(microchunk["Y"].__str__())*16
-						#z = int(i/16)%16+int(chunk["Level"]["zPos"].__str__())*16
-						
-						
-						
-						#found[tempblock] += 1
-						if find[tempblock] != 0:
-							y = int(i/256)+int(microchunk["Y"].__str__())*16
-							if find[tempblock][0][0] == -1:
-								find[tempblock][0][1][y] += 1
-							else:
-								temp = inBlockArray(find[tempblock], subid)
-								if temp != -1:
-									find[tempblock][temp][1][y] += 1
-						
-						i += 1
+								add = (add & 0xF0) << 4
+							tempblock = tempblock | add
+					subid = 0
+					if block != 0:
+						subid = microchunk["Data"][int(i/2)]
+						if i%2 == 0:
+							subid = (subid & 0x0F)
+						else:
+							subid = (subid & 0xF0) >> 4
+					
+					#x = i%16+int(chunk["Level"]["xPos"].__str__())*16
+					#y = int(i/256)+int(microchunk["Y"].__str__())*16
+					#z = int(i/16)%16+int(chunk["Level"]["zPos"].__str__())*16
+					
+					if find[tempblock] != 0:
+						y = int(i/256)+int(microchunk["Y"].__str__())*16
+						if find[tempblock][0][0] == -1:
+							find[tempblock][0][1][y] += 1
+						else:
+							temp = inBlockArray(find[tempblock], subid)
+							if temp != -1:
+								find[tempblock][temp][1][y] += 1
+					i += 1
 
 	except KeyboardInterrupt:
-		return 75 # EX_TEMPFAIL
+		sys.exit() # EX_TEMPFAIL
 	print()
-	#print("Counter "+str(counter))
-	#print(found)
-	#print(find)
+
 	i = 0
 	for block in find:
 		if block != 0:
@@ -189,25 +146,6 @@ def main(world_folder):
 				for subid in block:
 					print("Block "+str(i)+" with data value "+str(subid[0])+" has distribution "+str(subid[1]))
 		i += 1
-	return 0 # NOERR
-
-
-if __name__ == '__main__':
-	if (len(sys.argv) == 1):
-		print("Usage: OreCounter.py [options] WorldFolder")
-		print("       -i Input File (not implemented)")
-		print("       -o Output File (not implemented)")
-		print("       -v Print output to console (not implemented)")
-		print("       -d Calculate height distribution (not implemented)")
-		print("       -b Calculate per biome count (not implemented)")
-		print("       -p Calculate per biome distribution (not implemented)")
-		print("       -c Calculate average cluster size (not implemented)")
-		sys.exit(64) # EX_USAGE
-	world_folder = sys.argv[1]
-	# clean path name, eliminate trailing slashes:
-	world_folder = os.path.normpath(world_folder)
-	if (not os.path.exists(world_folder)):
-		print("No such folder as "+world_folder)
-		sys.exit(72) # EX_IOERR
 	
-	sys.exit(main(world_folder))
+	
+	sys.exit()
