@@ -99,6 +99,12 @@ if __name__ == '__main__':
 			chunknum += 1
 			sys.stdout.write('%d / %d chunks searched\r' % (chunknum, numchunks))
 			sys.stdout.flush()
+			
+			biomes = chunk["Level"]["Biomes"]
+			#print("\n",chunk["Level"]["xPos"].__str__(),"\n")
+			#if int(chunk["Level"]["xPos"].__str__()) == 9 and int(chunk["Level"]["zPos"].__str__()) == 16:
+			#	print(biomes.__str__())
+			#	sys.exit()
 			for microchunk in chunk["Level"]["Sections"]:
 				i = 0
 				for block in microchunk["Blocks"]:
@@ -118,18 +124,22 @@ if __name__ == '__main__':
 						else:
 							subid = (subid & 0xF0) >> 4
 					
-					#x = i%16+int(chunk["Level"]["xPos"].__str__())*16
-					#y = int(i/256)+int(microchunk["Y"].__str__())*16
-					#z = int(i/16)%16+int(chunk["Level"]["zPos"].__str__())*16
-					
-					if find[tempblock] != 0:
+						x = i%16+int(chunk["Level"]["xPos"].__str__())*16
 						y = int(i/256)+int(microchunk["Y"].__str__())*16
-						if find[tempblock][0][0] == -1:
-							find[tempblock][0][1][y] += 1
-						else:
-							temp = inBlockArray(find[tempblock], subid)
-							if temp != -1:
-								find[tempblock][temp][1][y] += 1
+						z = int(i/16)%16+int(chunk["Level"]["zPos"].__str__())*16
+						
+						biome = biomes[z%16*16+x%16]
+					
+						#if int(chunk["Level"]["xPos"].__str__()) == 9 and int(chunk["Level"]["zPos"].__str__()) == 16:
+						#	print(x,z,biome)
+					
+						if find[tempblock] != 0:
+							if find[tempblock][0][0] == -1:
+								find[tempblock][0][1][y] += 1
+							else:
+								temp = inBlockArray(find[tempblock], subid)
+								if temp != -1:
+									find[tempblock][temp][1][y] += 1
 					i += 1
 
 	except KeyboardInterrupt:
